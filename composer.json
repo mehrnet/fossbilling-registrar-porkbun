@@ -1,0 +1,31 @@
+{
+  "name": "mehrnet/fossbilling-registrar-porkbun",
+  "description": "Porkbun domain registrar adapter extension for FossBilling",
+  "type": "fossbilling-extension",
+  "license": "Apache-2.0",
+  "homepage": "https://mehrnet.com",
+  "authors": [
+    {
+      "name": "Mehrnet",
+      "homepage": "https://mehrnet.com"
+    }
+  ],
+  "support": {
+    "source": "https://github.com/mehrnet/fossbilling-registrar-porkbun",
+    "issues": "https://github.com/mehrnet/fossbilling-registrar-porkbun/issues"
+  },
+  "require": {
+    "php": ">=8.1",
+    "fossbilling/fossbilling": "*"
+  },
+  "autoload": {
+    "classmap": [
+      "library/"
+    ]
+  },
+  "extra": {
+    "fossbilling": {
+      "extension_directory": "library"
+    }
+  }
+}
