@@ -235,29 +235,27 @@ class Registrar_Adapter_Porkbun extends Registrar_AdapterAbstract
         $logBody['secretapikey'] = '***';
         $this->getLog()->debug('Porkbun API request: ' . $url . ' payload=' . json_encode($logBody));
 
-        try {
-            $response = $this->getHttpClient()->request('POST', $url, [
-                'json' => $requestBody,
-                'headers' => [
-                    'Accept' => 'application/json',
-                ],
-                'timeout' => 60,
-            ]);
-        } catch (Throwable $e) {
-            throw new Registrar_Exception('Porkbun request failed: :error', [':error' => $e->getMessage()]);
-        }
+        [$statusCode, $rawBody] = $this->sendRequest($url, $requestBody, true);
 
-        $statusCode = $response->getStatusCode();
-        $rawBody = $response->getContent(false);
-
-        if ($statusCode !== 200) {
-            throw new Registrar_Exception(
-                'Porkbun API HTTP :code on :endpoint',
-                [':code' => $statusCode, ':endpoint' => $endpoint]
-            );
+        // Fallback for installations where JSON POST bodies are rejected with HTTP 400.
+        if ($statusCode === 400) {
+            [$statusCode, $rawBody] = $this->sendRequest($url, $requestBody, false);
         }
 
         $decoded = json_decode($rawBody, true);
+        $apiMessage = is_array($decoded) ? (string) ($decoded['message'] ?? '') : '';
+
+        if ($statusCode !== 200) {
+            throw new Registrar_Exception(
+                'Porkbun API HTTP :code on :endpoint: :message',
+                [
+                    ':code' => $statusCode,
+                    ':endpoint' => $endpoint,
+                    ':message' => $apiMessage !== '' ? $apiMessage : 'Unknown HTTP error',
+                ]
+            );
+        }
+
         if (!is_array($decoded)) {
             throw new Registrar_Exception('Porkbun API returned an invalid JSON response.');
         }
@@ -270,6 +268,31 @@ class Registrar_Adapter_Porkbun extends Registrar_AdapterAbstract
         }
 
         return $decoded;
+    }
+
+    protected function sendRequest(string $url, array $requestBody, bool $asJson): array
+    {
+        $options = [
+            'headers' => [
+                'Accept' => 'application/json',
+            ],
+            'timeout' => 60,
+        ];
+
+        if ($asJson) {
+            $options['json'] = $requestBody;
+        } else {
+            $options['headers']['Content-Type'] = 'application/x-www-form-urlencoded';
+            $options['body'] = http_build_query($requestBody, '', '&');
+        }
+
+        try {
+            $response = $this->getHttpClient()->request('POST', $url, $options);
+        } catch (Throwable $e) {
+            throw new Registrar_Exception('Porkbun request failed: :error', [':error' => $e->getMessage()]);
+        }
+
+        return [$response->getStatusCode(), $response->getContent(false)];
     }
 
     protected function normalizeDomain(Registrar_Domain $domain): string
